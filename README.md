@@ -1,90 +1,126 @@
 # dutybot
 
-给自己用的 Telegram 值班 Bot。装在一台带 systemd 的 Linux Guest 上，用聊天菜单看机器、管服务、清僵尸，服务挂了或有人 SSH 上来会主动推给你。
+单人 Telegram 值班 Bot。部署于任意带 systemd 的 Linux Guest，通过菜单远程查看主机状态、重启指定服务、清理僵尸与孤儿进程、重启本机；服务异常或主机恢复后主动通知。
 
-Telegram 里叫 **值班**。只认你一个账号。
+Telegram 显示名：**值班**。仅允许一个 Telegram 账号（白名单）。
 
-部署和验收步骤看 [AGENTS.md](./AGENTS.md)（给 Hermes 等代理读）。
+部署、配置与验收说明见 [AGENTS.md](./AGENTS.md)，供 Hermes 等部署代理使用。
 
 ## 功能
 
-### 菜单里能点的
+### 菜单
 
-- **设备状态**：主机名、运行时间、CPU、温度、负载、内存/交换、根分区、网卡 IP；每个看守服务是否在跑；配了端口的会探一下通不通。虚拟机没有温度就显示不可用，不编数字。
-- **CPU 前五**：pid、占用、内存、命令行。
-- **读写前五**：当前读/写速率最高的五个进程。
-- **服务**：看守名单里每一条都一样——看状态、看最近日志、重启（要二次确认）。状态会带失败原因（Result、退出码、重启次数）。
-- **清理进程**：先列出僵尸，以及看守服务留下的孤儿 worker；你确认后才杀。僵尸杀不掉时会说明，让你去找父进程。不会因为占用高就杀。
-- **重启系统**：两次确认，大约一分钟后重启这台 Guest。起来后再推一条「已恢复」和一张状态卡。
-- **添加 / 删除服务**：发 unit 名、显示名、可选的 `host:port`。删除只从名单拿掉，不停那个服务。
+| 入口 | 行为 |
+| --- | --- |
+| 设备状态 | 主机名、uptime、CPU、温度、负载、内存/交换、根分区、网卡 IP；各看守服务是否 active；已配置端口则探测连通性。温度不可用时显示「不可用」，不使用估计值。 |
+| CPU 前五 | pid、CPU 占用、内存、命令行。 |
+| 读写前五 | 当前读/写速率最高的五个进程。 |
+| 服务 | 看守名单中每个 unit 提供同一套操作：状态、最近日志、重启（二次确认）。状态包含失败原因（Result、退出码、NRestarts）。 |
+| 清理进程 | 先预览僵尸进程与看守服务留下的孤儿 worker，确认后再终止。僵尸无法终止时予以说明，并提示查找父进程。不按 CPU 占用选择目标。 |
+| 重启系统 | 两次确认后，约 1 分钟重启本 Guest。启动完成后推送「已恢复」及状态卡。 |
+| 添加 / 删除服务 | 依次提供 unit 名、显示名、可选 `host:port`。删除仅从看守名单移除，不停止对应 unit。 |
 
-### 自己会报的
+### 主动通知
 
-- Bot 第一次上线，或机器重启后它拉起来：推「已恢复」+ 状态卡。
-- 看守服务挂了、自己恢复了、意外重启了。你刚在菜单里点的重启，不会再当意外重启广播一遍。
-- **假活**：服务显示在跑，但探测端口不通。
-- **SSH**：成功登录每次都报（谁、从哪个 IP、什么时候）。失败登录也报，同一 IP 有冷却，避免扫号刷屏。
-- **CPU**：去掉看守服务之后仍然很高 → 意外负载；整机长时间打满 → 饱和。
-- **磁盘读写、网卡流量**：持续超过阈值才报，恢复了也可以报一声。
-- **根分区剩余过低**：立刻报。
-- 同类告警有冷却，避免刷屏。
-- Bot 自己卡住时，由 systemd watchdog 拉起，仍走「已恢复」。
+- 首次上线，或主机重启后 Bot 启动：推送「已恢复」及状态卡。
+- 看守服务停止、自行恢复、意外重启。菜单内发起的重启不重复广播为意外重启。
+- 假活：unit 为 active，但已配置的探测端口不可达。
+- SSH 成功登录：每次推送（用户、来源 IP、时间），无冷却。
+- SSH 失败登录：推送，同一来源 IP 有冷却，避免扫描造成刷屏。
+- CPU：排除看守服务后仍偏高，判定为意外负载；整机长时间饱和则另行通知。
+- 磁盘读写、网卡流量：持续超过阈值后通知，并可在恢复后通知。
+- 根分区剩余空间过低：立即通知。
+- 同类告警设有冷却。
+- Bot 无响应时由 systemd `WatchdogSec` 拉起，仍按「已恢复」通知。
 
-### 不做的事
+### 使用边界
 
-只装 Guest，不动 PVE 宿主机。没有网页控制台，不能执行任意命令。Token 只活在本机环境文件里，不进 git。
+- 仅部署于 Guest Linux，不操作 PVE 宿主机。
+- 不提供网页控制台，不执行任意 shell。
+- Token 仅保存在本机环境文件中，不纳入版本库。
+- 无用进程限定为僵尸进程，以及看守服务留下的孤儿 worker。
 
-## 环境
+## 运行环境
 
-任意发行版，只要有 systemd 和 Python 3.10+。
+- systemd
+- Python 3.10 或更高版本
+- 发行版不限定为 Linux Mint
 
-看守名单是配置，不是写死的三个名字。默认会管 Hermes，也可以加 Pi Agent、DSH、Caddy、Nginx、Docker 等，每一条都是：id、显示名、`*.service`、可选探测地址。
+看守名单为配置，而非写死的服务名。每条记录包含：`id`、显示名、`*.service`、可选探测地址 `host:port`。默认示例为 Hermes、Pi Agent、DSH，亦可加入 Caddy、Nginx、Docker 等，操作方式相同。
 
 ## 当前进度
 
-仓库里目前是文档。安装脚本、Bot 和 helper 还没提交。没有 `install.sh` 就不要手写一套安装。
+本仓库目前仅包含文档。`install.sh`、Bot 与 helper 尚未提交。安装脚本就绪前，请勿编写替代安装流程。
 
-## 装到机器上会留下什么
+## 计划文件结构
 
-安装**只会**创建这些。卸载必须全部撤掉，并核对没有残留。不要删除 Hermes 或其他看守服务。
+安装仅创建下列对象。卸载须全部移除，并核对无残留。**不得**删除 Hermes、Pi Agent、DSH 或其他看守服务的 unit。
 
-**源码（计划）**
+### 仓库（源码，尚未全部提交）
 
 ```
-README.md          AGENTS.md
-install.sh         uninstall.sh
-requirements.txt
-systemd/dutybot.service
-sudoers/dutybot
-helper/dutyctl
-src/dutybot/       bot、状态、服务、进程、监控、通知
+.
+├── README.md
+├── AGENTS.md
+├── install.sh
+├── uninstall.sh
+├── requirements.txt
+├── systemd/
+│   └── dutybot.service
+├── sudoers/
+│   └── dutybot
+├── helper/
+│   └── dutyctl
+└── src/dutybot/
+    ├── __init__.py
+    ├── __main__.py
+    ├── bot.py
+    ├── config.py
+    ├── status.py
+    ├── services.py
+    ├── procs.py
+    ├── monitor.py
+    └── notify.py
 ```
 
-**装完以后在 Guest 上**
+### Guest（安装后的落地路径，卸载对照此表）
 
-| 路径 | 干什么 |
-| --- | --- |
-| `/opt/dutybot/` | 程序和 venv，用户 `dutybot` 的家目录 |
-| `/etc/dutybot/env` | Token 和白名单 Chat ID |
-| `/var/lib/dutybot/watch.json` | 看守名单 |
-| `/usr/lib/dutybot/dutyctl` | 唯一能提权的助手（重启服务 / 杀指定进程 / 重启系统） |
-| `/etc/sudoers.d/dutybot` | 只允许上面那个助手 |
-| `/etc/systemd/system/dutybot.service` | 开机拉起 Bot |
-| 用户和组 `dutybot` | 非 root，不能登录 |
+| 路径 | 类型 | 用途 |
+| --- | --- | --- |
+| `/opt/dutybot/` | 目录 | 应用代码与 venv，用户 `dutybot` 的 home |
+| `/opt/dutybot/venv/` | 目录 | Python 虚拟环境 |
+| `/etc/dutybot/` | 目录 | 环境配置目录 |
+| `/etc/dutybot/env` | 文件 | `BOT_TOKEN`、`ALLOWED_CHAT_ID`，权限 `640`，属主 `root:dutybot` |
+| `/var/lib/dutybot/` | 目录 | 可变数据 |
+| `/var/lib/dutybot/watch.json` | 文件 | 看守名单，属主 `dutybot:dutybot` |
+| `/usr/lib/dutybot/` | 目录 | 特权 helper 目录 |
+| `/usr/lib/dutybot/dutyctl` | 文件 | 唯一特权 helper：`restart-unit` / `kill-pids` / `reboot` |
+| `/etc/sudoers.d/dutybot` | 文件 | 仅放行 `dutyctl`，不得授予 `NOPASSWD ALL` |
+| `/etc/systemd/system/dutybot.service` | 文件 | systemd unit |
+| 用户 `dutybot` | 系统用户 | 运行 Bot 的非 root 用户，nologin |
+| 组 `dutybot` | 系统组 | 与用户同名 |
 
-没有网站目录，不改 sshd/PAM，不加 cron。日志在 journal 里：`journalctl -u dutybot`。
+不创建网站目录，不修改 sshd 或 PAM，不额外注册 timer 或 cron。日志写入 journal（`journalctl -u dutybot`），不单独落盘。
 
-### 卸完怎么确认没残留
+### 卸载后残留检查
 
-`uninstall.sh` 跑完后，下面这些都应该找不到。还在就是没卸干净。不要扩大删除范围去「顺便清」。journal 里的旧日志可以留着。
+`uninstall.sh` 执行完毕后，下列各项均应不存在。任一仍存在即视为残留，须修复至清除。不得以扩大删除范围的方式清理。
 
 ```bash
+# 文件和目录：有输出即为残留
 ls -ld /opt/dutybot /etc/dutybot /var/lib/dutybot /usr/lib/dutybot \
   /etc/sudoers.d/dutybot /etc/systemd/system/dutybot.service 2>/dev/null
 
+# 用户和组：能查询到即为残留
 getent passwd dutybot
 getent group dutybot
+
+# 服务：仍为 loaded/active 即为残留
 systemctl status dutybot --no-pager
+systemctl is-enabled dutybot 2>/dev/null
+
+# 不得改动的对象（必须仍存在；缺失即为误删）
+systemctl cat hermes.service pi-agent.service dsh.service 2>/dev/null | head
 ```
 
-Hermes 等看守服务的 unit 必须还在。检查时用这台机器上的真实服务名。
+请以本机真实 unit 名替换上述 `hermes.service` 等示例。journal 中 `dutybot` 的历史记录可保留，不作为必须清除的残留；请勿为此对整机执行 `journalctl --vacuum`。
