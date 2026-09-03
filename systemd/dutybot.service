@@ -1,0 +1,24 @@
+[Unit]
+Description=dutybot personal Telegram duty bot
+Documentation=file:///opt/dutybot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=dutybot
+Group=dutybot
+SupplementaryGroups=systemd-journal
+EnvironmentFile=-/etc/dutybot/env
+Environment=PYTHONPATH=/opt/dutybot
+Environment=PYTHONUNBUFFERED=1
+WorkingDirectory=/opt/dutybot
+ExecStart=/opt/dutybot/venv/bin/python -m dutybot
+WatchdogSec=30
+Restart=on-failure
+RestartSec=3
+NotifyAccess=main
+# Do not set NoNewPrivileges: the process must sudo /usr/lib/dutybot/dutyctl.
+
+[Install]
+WantedBy=multi-user.target

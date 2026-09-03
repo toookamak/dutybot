@@ -1,0 +1,3 @@
+# Only the dutyctl helper; never NOPASSWD ALL.
+Defaults:dutybot !requiretty
+dutybot ALL=(root) NOPASSWD: /usr/lib/dutybot/dutyctl
