@@ -46,12 +46,15 @@ class UnitStatus:
 
 
 def _run(args: list[str], timeout: float = 15) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env.pop("NOTIFY_SOCKET", None)
     return subprocess.run(
         args,
         capture_output=True,
         text=True,
         timeout=timeout,
         check=False,
+        env=env,
     )
 
 
@@ -251,10 +254,13 @@ async def dutyctl_async(*args: str, timeout: float = 30) -> tuple[int, str, str]
     cmd = ["sudo", "-n", str(dutyctl_path()), *args]
     log.info("dutyctl %s", " ".join(args))
     try:
+        env = os.environ.copy()
+        env.pop("NOTIFY_SOCKET", None)
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=env,
         )
     except FileNotFoundError as exc:
         return 127, "", str(exc)
