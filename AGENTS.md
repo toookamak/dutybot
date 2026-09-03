@@ -173,7 +173,7 @@ sudo systemctl reload dutybot 2>/dev/null || sudo systemctl restart dutybot
 
 你要保证：
 
-1. 本机 OpenSSH 在跑，日志进 journal（第 4 节那条 `journalctl` 能看到记录算通）。
+1. 本机 OpenSSH 在跑，日志进 journal（第 4 节那条 `journalctl` 能看到记录就算通）。
 2. 成功登录：**每次**推白名单（用户、来源 IP、时间）。不要做成功登录冷却。
 3. 失败登录：要报，但 **同一 IP 必须冷却**，防止扫号刷屏。
 4. 不要用 `ForceCommand`、不要给 sshd 塞脚本。
