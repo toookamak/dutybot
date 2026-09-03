@@ -17,7 +17,8 @@ ExecStart=/opt/dutybot/venv/bin/python -m dutybot
 WatchdogSec=30
 Restart=on-failure
 RestartSec=3
-NotifyAccess=main
+# exec: accept READY/WATCHDOG from the python that follows a venv wrapper pid.
+NotifyAccess=exec
 # Do not set NoNewPrivileges: the process must sudo /usr/lib/dutybot/dutyctl.
 
 [Install]
