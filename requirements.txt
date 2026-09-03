@@ -1,4 +1,4 @@
 python-telegram-bot>=21.0,<23
-aiohttp>=3.9
+aiohttp>=3.9,<4
 psutil>=5.9
 Jinja2>=3.1
