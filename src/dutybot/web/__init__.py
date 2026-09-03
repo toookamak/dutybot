@@ -122,6 +122,11 @@ def _jinja() -> Environment:
     )
 
 
+def html_response(text: str, *, status: int = 200) -> web.Response:
+    """aiohttp 3.10+ forbids charset inside content_type."""
+    return web.Response(text=text, status=status, content_type="text/html", charset="utf-8")
+
+
 def create_app(cfg: Config) -> web.Application:
     env = _jinja()
     app = web.Application()
@@ -150,7 +155,7 @@ def create_app(cfg: Config) -> web.Application:
         if current_session(request):
             raise web.HTTPFound("/")
         html = render("login.html", error=None)
-        return web.Response(text=html, content_type="text/html; charset=utf-8")
+        return html_response(html)
 
     async def login_post(request: web.Request) -> web.Response:
         form = await request.post()
@@ -160,7 +165,7 @@ def create_app(cfg: Config) -> web.Application:
         ok_pw = verify_password(password, cfg.web_password_hash)
         if not (ok_user and ok_pw):
             html = render("login.html", error="用户名或口令错误")
-            return web.Response(text=html, content_type="text/html; charset=utf-8", status=401)
+            return html_response(html, status=401)
         sid = secrets.token_urlsafe(32)
         _save_session(cfg, sid, {"user": cfg.web_user, "ts": time.time(), "csrf": _new_csrf()})
         resp = web.HTTPFound("/")
@@ -186,7 +191,7 @@ def create_app(cfg: Config) -> web.Application:
             notice=request.rel_url.query.get("n"),
             telegram_on=cfg.telegram_ok,
         )
-        return web.Response(text=html, content_type="text/html; charset=utf-8")
+        return html_response(html)
 
     def _csrf_ok(form, sess) -> bool:
         got = str(form.get("csrf") or "")
@@ -260,7 +265,7 @@ def create_app(cfg: Config) -> web.Application:
             telegram_on=cfg.telegram_ok,
             notice=request.rel_url.query.get("n"),
         )
-        return web.Response(text=html, content_type="text/html; charset=utf-8")
+        return html_response(html)
 
     @require_login
     async def settings_post(request: web.Request) -> web.Response:
@@ -314,7 +319,7 @@ def create_app(cfg: Config) -> web.Application:
             csrf=request["session"].get("csrf"),
             telegram_on=cfg.telegram_ok,
         )
-        return web.Response(text=html, content_type="text/html; charset=utf-8")
+        return html_response(html)
 
     app.router.add_get("/login", login_get)
     app.router.add_post("/login", login_post)
