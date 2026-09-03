@@ -58,7 +58,7 @@ async def amain() -> None:
     chat_id = int(cfg.allowed_chat_id) if cfg.telegram_ok else None
     notifier = Notifier(None, chat_id)
     monitor = Monitor(cfg, notifier)
-    tasks: list[asyncio.Task] = [asyncio.create_task(monitor.run(), name="monitor")]
+    tasks: list[asyncio.Task] = []
 
     tg_app = None
     web_runner = None
@@ -83,8 +83,10 @@ async def amain() -> None:
     else:
         log.info("WEB_USER 未配置，不监听 HTTP")
 
+    # Recovered notify must run after bind_bot, or the first card is dropped.
     notify_ready()
     notify_status("running")
+    tasks.append(asyncio.create_task(monitor.run(), name="monitor"))
     tasks.append(asyncio.create_task(_watchdog_loop(), name="watchdog"))
 
     stop = asyncio.Event()
