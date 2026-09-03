@@ -45,9 +45,12 @@ Chat ID 若主人不知道：让他先随便给 Bot 发一条 `/start`，你再�
 ```bash
 systemctl --version
 python3 -c 'import sys; print(sys.version); assert sys.version_info >= (3, 10)'
+python3 -c 'import venv, ensurepip'
 hostnamectl
 ip -br addr
 ```
+
+Debian/Ubuntu 上 `python3` 常缺独立包 `python3.XX-venv`。`import venv` 失败时不要改用别的解释器凑合；`install.sh` 会尝试 `apt-get install python3.XX-venv`。装不上就停，把缺包事实回报主人。
 
 找到真实 unit（名字以本机为准，不要照抄示例）：
 
