@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}看守名单{% endblock %}
+{% block body %}
+<h1>看守名单</h1>
+<p class="hint">删除只从名单移除，不会停止对应 unit。Telegram：{% if telegram_on %}已配置{% else %}未配置{% endif %}（Token 不在此页展示）。</p>
+{% if error %}<p class="err">{{ error }}</p>{% endif %}
+{% if notice %}<p class="ok">已保存（{{ notice }}）。</p>{% endif %}
+
+{% for s in services %}
+<section class="card">
+  <form method="post" action="/watch/edit" class="grid">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="id" value="{{ s.id }}">
+    <label>id <input type="text" value="{{ s.id }}" disabled></label>
+    <label>显示名 <input type="text" name="name" value="{{ s.name }}" required></label>
+    <label>unit <input type="text" name="unit" value="{{ s.unit }}" required></label>
+    <label>探测 host:port <input type="text" name="probe" value="{{ s.probe or '' }}" placeholder="可空"></label>
+    <button type="submit">保存</button>
+  </form>
+  <form method="post" action="/watch/delete" onsubmit="return confirm('仅从名单删除，不会停止 unit。确定？');">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="id" value="{{ s.id }}">
+    <button type="submit" class="danger">删除</button>
+  </form>
+</section>
+{% else %}
+<p>名单为空。可在下方添加，或通过 Telegram「添加服务」。</p>
+{% endfor %}
+
+<section class="card">
+  <h2>添加服务</h2>
+  <form method="post" action="/watch/add" class="grid">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>id <input type="text" name="id" placeholder="短名，小写"></label>
+    <label>显示名 <input type="text" name="name" required></label>
+    <label>unit <input type="text" name="unit" placeholder="foo.service" required></label>
+    <label>探测 host:port <input type="text" name="probe" placeholder="可空"></label>
+    <button type="submit">添加</button>
+  </form>
+</section>
+{% endblock %}

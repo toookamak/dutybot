@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}日志{% endblock %}
+{% block body %}
+<h1>日志</h1>
+<p class="hint">仅 dutybot 自身与看守名单中的 unit。不可输入任意 journalctl 表达式。</p>
+<form method="get" action="/logs" class="grid">
+  <label>服务
+    <select name="unit">
+      {% for u in units %}
+      <option value="{{ u }}" {% if u == chosen %}selected{% endif %}>{{ u }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>过去小时
+    <input type="number" name="hours" min="1" max="168" value="{{ hours }}">
+  </label>
+  <label>起始（可空，覆盖小时）
+    <input type="text" name="since" value="{{ since }}">
+  </label>
+  <label>优先级 0-7（可空）
+    <input type="text" name="priority" value="{{ priority }}" maxlength="1">
+  </label>
+  <button type="submit">查询</button>
+</form>
+{% if error %}<p class="err">{{ error }}</p>{% endif %}
+<pre class="log">{{ log_text }}</pre>
+{% endblock %}

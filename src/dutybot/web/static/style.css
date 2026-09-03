@@ -1,0 +1,50 @@
+:root {
+  --bg: #0f1419;
+  --fg: #e7ecf3;
+  --muted: #8b9bb4;
+  --card: #1a222d;
+  --accent: #3d8bfd;
+  --danger: #e35d6a;
+  --ok: #3dd68c;
+  --line: #2a3544;
+  font-family: "Noto Sans SC", "Source Han Sans SC", "PingFang SC", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); min-height: 100vh; }
+a { color: var(--accent); text-decoration: none; }
+header.top {
+  display: flex; align-items: center; gap: 1.5rem;
+  padding: .75rem 1.25rem; border-bottom: 1px solid var(--line);
+  background: #121820;
+}
+.brand { font-weight: 700; letter-spacing: .08em; }
+nav { display: flex; gap: 1rem; flex: 1; }
+.logout { margin-left: auto; display: flex; gap: .75rem; align-items: center; }
+.who { color: var(--muted); font-size: .9rem; }
+main { max-width: 960px; margin: 1.5rem auto; padding: 0 1rem 3rem; }
+h1, h2 { font-weight: 600; }
+.hint, footer { color: var(--muted); font-size: .9rem; }
+footer { max-width: 960px; margin: 0 auto; padding: 1rem; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1.25rem; margin: 1rem 0; }
+.login { max-width: 360px; margin: 12vh auto; }
+label { display: flex; flex-direction: column; gap: .35rem; margin: .6rem 0; font-size: .9rem; color: var(--muted); }
+input, select, button {
+  font: inherit; padding: .45rem .6rem; border-radius: 6px;
+  border: 1px solid var(--line); background: #0f1419; color: var(--fg);
+}
+button {
+  background: var(--accent); color: #fff; border: 0; cursor: pointer; padding: .5rem 1rem;
+}
+button.danger { background: var(--danger); }
+.err { color: var(--danger); }
+.ok { color: var(--ok); }
+table { width: 100%; border-collapse: collapse; background: var(--card); }
+th, td { border-bottom: 1px solid var(--line); padding: .5rem; text-align: left; vertical-align: top; }
+.inline { display: inline; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem 1rem; }
+.grid button { grid-column: 1 / -1; justify-self: start; }
+pre.log {
+  background: #0a0e13; border: 1px solid var(--line); padding: 1rem;
+  overflow: auto; white-space: pre-wrap; font-size: .85rem;
+}
+@media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }

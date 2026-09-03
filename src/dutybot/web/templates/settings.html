@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}告警阈值{% endblock %}
+{% block body %}
+<h1>告警阈值与冷却</h1>
+<p class="hint">未填写的项使用内置默认值。Telegram：{% if telegram_on %}已配置{% else %}未配置{% endif %}。</p>
+{% if notice %}<p class="ok">{{ notice }}</p>{% endif %}
+<form method="post" action="/thresholds" class="grid">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>根分区剩余低于 % <input type="number" name="root_disk_avail_pct" value="{{ th.root_disk_avail_pct }}"></label>
+  <label>根分区剩余低于字节 <input type="number" name="root_disk_avail_bytes" value="{{ th.root_disk_avail_bytes }}"></label>
+  <label>意外 CPU % <input type="number" name="cpu_unexpected_pct" value="{{ th.cpu_unexpected_pct }}"></label>
+  <label>意外 CPU 持续秒 <input type="number" name="cpu_unexpected_sec" value="{{ th.cpu_unexpected_sec }}"></label>
+  <label>饱和 CPU % <input type="number" name="cpu_saturation_pct" value="{{ th.cpu_saturation_pct }}"></label>
+  <label>饱和 CPU 持续秒 <input type="number" name="cpu_saturation_sec" value="{{ th.cpu_saturation_sec }}"></label>
+  <label>磁盘 MB/s <input type="number" name="disk_mbps" value="{{ th.disk_mbps }}"></label>
+  <label>磁盘持续秒 <input type="number" name="disk_sec" value="{{ th.disk_sec }}"></label>
+  <label>网卡 MB/s <input type="number" name="net_mbps" value="{{ th.net_mbps }}"></label>
+  <label>网卡持续秒 <input type="number" name="net_sec" value="{{ th.net_sec }}"></label>
+  <label>资源告警冷却秒 <input type="number" name="cooldown_resource_sec" value="{{ th.cooldown_resource_sec }}"></label>
+  <label>服务告警冷却秒 <input type="number" name="cooldown_service_sec" value="{{ th.cooldown_service_sec }}"></label>
+  <label>SSH 失败每 IP 冷却秒 <input type="number" name="cooldown_ssh_fail_sec" value="{{ th.cooldown_ssh_fail_sec }}"></label>
+  <label>轮询间隔秒 <input type="number" name="poll_sec" value="{{ th.poll_sec }}"></label>
+  <button type="submit">保存</button>
+</form>
+{% endblock %}

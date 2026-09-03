@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}值班{% endblock %} · dutybot</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  {% if user is defined and user %}
+  <header class="top">
+    <div class="brand">值班</div>
+    <nav>
+      <a href="/">看守名单</a>
+      <a href="/thresholds">告警阈值</a>
+      <a href="/logs">日志</a>
+    </nav>
+    <form class="logout" method="post" action="/logout">
+      <span class="who">{{ user }}</span>
+      <button type="submit">退出</button>
+    </form>
+  </header>
+  {% endif %}
+  <main>
+    {% block body %}{% endblock %}
+  </main>
+  <footer>
+    <p>dutybot 本地管理页。不展示 Bot Token。重启服务、清理进程、重启系统仅能通过 Telegram 菜单。</p>
+  </footer>
+</body>
+</html>
