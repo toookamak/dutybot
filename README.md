@@ -1,8 +1,8 @@
 # dutybot
 
-单人 Telegram 值班 Bot。部署于任意带 systemd 的 Linux Guest，通过菜单远程查看主机状态、重启指定服务、清理僵尸与孤儿进程、重启本机；服务异常或主机恢复后主动通知。
+单人 Telegram 值班 Bot。部署于任意带 systemd 的 Linux Guest，通过菜单远程查看主机状态、重启指定服务、清理僵尸与孤儿进程、重启本机；服务异常或主机恢复后主动通知。另提供需登录的 Web 页面，用于配置与查询日志。
 
-Telegram 显示名：**值班**。仅允许一个 Telegram 账号（白名单）。
+Telegram 显示名：**值班**。仅允许一个 Telegram 账号（白名单）。Web 页面同样仅允许一个本地登录账号。
 
 部署、配置与验收说明见 [AGENTS.md](./AGENTS.md)，供 Hermes 等部署代理使用。
 
@@ -33,10 +33,20 @@ Telegram 显示名：**值班**。仅允许一个 Telegram 账号（白名单）
 - 同类告警设有冷却。
 - Bot 无响应时由 systemd `WatchdogSec` 拉起，仍按「已恢复」通知。
 
+### Web 管理页
+
+同一 `dutybot` 进程内提供 HTTP 服务，不另建网站目录、不另装控制面板。
+
+- 登录：单一本地账号（用户名与口令哈希写入 `/etc/dutybot/env`）。未登录不可访问配置与日志。
+- 配置：编辑看守名单（增删改 unit、显示名、探测地址）、告警阈值与冷却。不在页面上展示或修改 `BOT_TOKEN`。删除名单条目仍不得停止对应 unit。
+- 日志：查询 `dutybot` 自身 journal，以及看守名单中各 unit 的 journal。可按服务、时间范围、优先级过滤。不得提供任意 journalctl 表达式或 shell。
+- 重启服务、清理进程、重启系统仍仅通过 Telegram 菜单（含确认），Web 页不提供此类操作。
+- 默认监听 `127.0.0.1`，端口由配置指定。如需外网访问，由本机已有的 Caddy / Nginx 反向代理，dutybot 不直接对 `0.0.0.0` 暴露。
+
 ### 使用边界
 
 - 仅部署于 Guest Linux，不操作 PVE 宿主机。
-- 不提供网页控制台，不执行任意 shell。
+- 不提供命令终端，不执行任意 shell。
 - Token 仅保存在本机环境文件中，不纳入版本库。
 - 无用进程限定为僵尸进程，以及看守服务留下的孤儿 worker。
 
@@ -80,7 +90,11 @@ Telegram 显示名：**值班**。仅允许一个 Telegram 账号（白名单）
     ├── services.py
     ├── procs.py
     ├── monitor.py
-    └── notify.py
+    ├── notify.py
+    ├── web.py
+    └── web/
+        ├── templates/
+        └── static/
 ```
 
 ### Guest（安装后的落地路径，卸载对照此表）
@@ -90,17 +104,18 @@ Telegram 显示名：**值班**。仅允许一个 Telegram 账号（白名单）
 | `/opt/dutybot/` | 目录 | 应用代码与 venv，用户 `dutybot` 的 home |
 | `/opt/dutybot/venv/` | 目录 | Python 虚拟环境 |
 | `/etc/dutybot/` | 目录 | 环境配置目录 |
-| `/etc/dutybot/env` | 文件 | `BOT_TOKEN`、`ALLOWED_CHAT_ID`，权限 `640`，属主 `root:dutybot` |
+| `/etc/dutybot/env` | 文件 | `BOT_TOKEN`、`ALLOWED_CHAT_ID`、Web 登录账号与口令哈希、`WEB_BIND`、`WEB_PORT`；权限 `640`，属主 `root:dutybot` |
 | `/var/lib/dutybot/` | 目录 | 可变数据 |
 | `/var/lib/dutybot/watch.json` | 文件 | 看守名单，属主 `dutybot:dutybot` |
+| `/var/lib/dutybot/web-sessions/` | 目录 | Web 登录会话（若落盘）；属主 `dutybot:dutybot` |
 | `/usr/lib/dutybot/` | 目录 | 特权 helper 目录 |
 | `/usr/lib/dutybot/dutyctl` | 文件 | 唯一特权 helper：`restart-unit` / `kill-pids` / `reboot` |
 | `/etc/sudoers.d/dutybot` | 文件 | 仅放行 `dutyctl`，不得授予 `NOPASSWD ALL` |
-| `/etc/systemd/system/dutybot.service` | 文件 | systemd unit |
+| `/etc/systemd/system/dutybot.service` | 文件 | systemd unit（同时运行 Telegram Bot 与 Web） |
 | 用户 `dutybot` | 系统用户 | 运行 Bot 的非 root 用户，nologin |
 | 组 `dutybot` | 系统组 | 与用户同名 |
 
-不创建网站目录，不修改 sshd 或 PAM，不额外注册 timer 或 cron。日志写入 journal（`journalctl -u dutybot`），不单独落盘。
+不创建独立网站根目录，不修改 sshd 或 PAM，不额外注册 timer、cron 或第二个 systemd unit。日志写入 journal（`journalctl -u dutybot`），不单独落盘。反向代理配置若由本机已有 Caddy / Nginx 提供，不属于 dutybot 安装产物，卸载时不得删除这些软件的 unit。
 
 ### 卸载后残留检查
 
@@ -118,6 +133,9 @@ getent group dutybot
 # 服务：仍为 loaded/active 即为残留
 systemctl status dutybot --no-pager
 systemctl is-enabled dutybot 2>/dev/null
+
+# 本机监听：dutybot 占用的 Web 端口不应再存在
+ss -lntp | grep dutybot || true
 
 # 不得改动的对象（必须仍存在；缺失即为误删）
 systemctl cat hermes.service pi-agent.service dsh.service 2>/dev/null | head
