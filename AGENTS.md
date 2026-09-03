@@ -173,7 +173,7 @@ sudo systemctl reload dutybot 2>/dev/null || sudo systemctl restart dutybot
 
 你要保证：
 
-1. 本机 OpenSSH 在跑，日志进 journal（第 4 节那条 `journalctl` 能看到记录就算通）。
+1. 本机 OpenSSH 在跑，日志进 journal（第 4 节那条 `journalctl` 能看到记录算通）。
 2. 成功登录：**每次**推白名单（用户、来源 IP、时间）。不要做成功登录冷却。
 3. 失败登录：要报，但 **同一 IP 必须冷却**，防止扫号刷屏。
 4. 不要用 `ForceCommand`、不要给 sshd 塞脚本。
@@ -212,7 +212,7 @@ sudo systemctl reload dutybot 2>/dev/null || sudo systemctl restart dutybot
 6. 若启用了 Telegram：菜单「服务 → 状态 / 最近日志」能看，**先不要点重启系统**
 7. 若启用了 Telegram：用主人账号以外的账号发消息，Bot **必须不理**
 8. 若启用了 Telegram：能 `journalctl -u ssh -u sshd -n 20 --no-pager` 的机器，告诉主人下一次 SSH 登录应收到通知；journal 没有则标明 SSH 通知不可用，不视为整机安装失败
-9. 若启用了 Web：本机可打开登录页；错误口令进不去；正确口令后能改看守名单、能看到 `dutybot` 与看守 unit 的日志。未启用 Web 则 `ss -lntp` 不应出现 dutybot 的 HTTP 端口
+9. 若启用了 Web：本机可打开登录页；错误口令进不去；正确口令后能改看守名单、能看到 `dutybot` 与看守 unit 的日志。未启用 Web 则 `ss -lntp` 不应出现 dutybot 的 HTTP 端口，Telegram 功能仍须通过验收第 3–8 项
 10. 若启用了 Web：`ss -lntp` 显示绑在 `127.0.0.1`（除非主人书面要求并已加反向代理）
 
 验收失败：修配置或停在当前步骤，不要扩大权限「先跑起来再说」。
