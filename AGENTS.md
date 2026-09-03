@@ -26,16 +26,17 @@
 
 ## 3. 动手前向主人要齐这些
 
-缺一项都不要开始安装：
+完整对照见 README「配置说明」。未配置的项只关闭对应能力，其余功能仍可用。
 
-| 项 | 说明 |
-| --- | --- |
-| `BOT_TOKEN` | 主人用 @BotFather 建的 Bot Token |
-| `ALLOWED_CHAT_ID` | 唯一白名单，数字 Telegram user id（不是用户名） |
-| `WEB_USER` / Web 口令 | Web 页唯一登录账号。口令只写入环境文件的哈希，不要回显、不要记进仓库 |
-| 看守名单 | 至少包含 Hermes；默认还要考虑 Pi Agent、DSH。每条要有 **真实 unit 名**（`*.service`），显示名，可选 `host:port` 探测 |
-| Web 端口 | 默认 `127.0.0.1:8787`。若主人要求走 Caddy/Nginx，再问反向代理主机名，不要擅自对公网打开 |
-| 确认本机是 Guest | 不是 PVE 宿主机 |
+**至少一条完整通道**（Telegram 的 Token+Chat ID，或 Web 的用户+口令）才能安装。两条都没有就停，提问补齐。不要为了「先装上」编造 Token 或口令。
+
+| 项 | 必要性 | 说明 |
+| --- | --- | --- |
+| 确认本机是 Guest | 必须 | 不是 PVE 宿主机。不确定就停。 |
+| `BOT_TOKEN` + `ALLOWED_CHAT_ID` | 使用 Telegram 时必须成对 | 缺一则 Telegram 菜单和通知都不可用。Web 已配则可只开 Web。 |
+| `WEB_USER` / Web 口令 | 使用 Web 时必须 | 未给则不启用 Web，Telegram 照常。口令只写环境文件哈希，不要回显、不要进仓库。 |
+| `WEB_BIND` / `WEB_PORT` | 可选 | 启用 Web 时默认 `127.0.0.1:8787`。主人要求走 Caddy/Nginx 再问反代主机名，不要擅自对公网打开。 |
+| 看守名单 | 可选，允许空 | 空名单可装。设备状态、CPU/读写前五、重启本机、僵尸、SSH、资源告警仍可用。建议写入 Hermes（及 Pi Agent、DSH），但不是安装前提。每条要有本机 **真实 unit 名**，`probe` 可空。 |
 
 Chat ID 若主人不知道：让他先随便给 Bot 发一条 `/start`，你再查更新，或请主人用自己的方式把数字 id 给你。不要猜。
 
@@ -77,7 +78,7 @@ journalctl -u ssh -u sshd -n 5 --no-pager
 sudo ./install.sh
 ```
 
-- 环境文件里没有 Token / Chat ID / Web 口令时，脚本必须 **提问**，不要自己编。
+- 缺当前启用通道所需的密钥时，脚本必须 **提问**，不要自己编。只开 Telegram 就不要强要 Web 口令。
 - 装完后服务名：`dutybot.service`（Telegram 与 Web 同一进程）
 - 进程用户：`dutybot`（非 root）
 - 特权动作只允许通过固定 helper：`/usr/lib/dutybot/dutyctl`
@@ -94,9 +95,16 @@ sudo ./install.sh
 文件：`/etc/dutybot/env`  
 属主：`root:dutybot`，权限 `640`
 
+Telegram 通道示例：
+
 ```
 BOT_TOKEN=...
 ALLOWED_CHAT_ID=...
+```
+
+Web 通道示例（未启用 Web 则不要写这四项，进程不监听 HTTP）：
+
+```
 WEB_USER=...
 WEB_PASSWORD_HASH=...
 WEB_BIND=127.0.0.1
@@ -174,6 +182,8 @@ sudo systemctl reload dutybot 2>/dev/null || sudo systemctl restart dutybot
 
 ### 6.4 Web 页
 
+未配置 `WEB_USER` 时跳过本节，不要强行启 Web。
+
 - 确认 `ss -lntp` 上 `WEB_BIND:WEB_PORT` 在听，且进程是 `dutybot`。
 - 未登录访问配置/日志应被拒绝。
 - 日志页只能选 `dutybot` 与看守名单里的 unit，不要接任意 unit 名。
@@ -196,14 +206,14 @@ sudo systemctl reload dutybot 2>/dev/null || sudo systemctl restart dutybot
 
 1. `systemctl is-active dutybot` 为 `active`
 2. `systemctl show dutybot -p WatchdogTimestamp` 有喂狗（若 unit 配了 WatchdogSec）
-3. 主人 Telegram 收到上线/恢复状态卡，且能打开菜单
-4. 状态卡里 Hermes（以及已写入的 Pi Agent、DSH）显示 **真实** active/inactive，不是 unknown
+3. 若启用了 Telegram：主人收到上线/恢复状态卡，且能打开菜单
+4. 若看守名单非空：状态卡里已写入的服务显示 **真实** active/inactive，不是 unknown
 5. 若填了 probe：端口通/不通与事实一致
-6. 菜单「服务 → 状态 / 最近日志」能看，**先不要点重启系统**
-7. 用主人账号以外的 Telegram 账号发消息，Bot **必须不理**
-8. 能 `journalctl -u ssh -u sshd -n 20 --no-pager` 的机器，告诉主人：下一次 SSH 登录应收到通知
-9. Web：本机可打开登录页；错误口令进不去；正确口令后能改看守名单、能看到 `dutybot` 与看守 unit 的日志
-10. `ss -lntp` 显示 Web 绑在 `127.0.0.1`（除非主人书面要求并已加反向代理）
+6. 若启用了 Telegram：菜单「服务 → 状态 / 最近日志」能看，**先不要点重启系统**
+7. 若启用了 Telegram：用主人账号以外的账号发消息，Bot **必须不理**
+8. 若启用了 Telegram：能 `journalctl -u ssh -u sshd -n 20 --no-pager` 的机器，告诉主人下一次 SSH 登录应收到通知；journal 没有则标明 SSH 通知不可用，不视为整机安装失败
+9. 若启用了 Web：本机可打开登录页；错误口令进不去；正确口令后能改看守名单、能看到 `dutybot` 与看守 unit 的日志。未启用 Web 则 `ss -lntp` 不应出现 dutybot 的 HTTP 端口
+10. 若启用了 Web：`ss -lntp` 显示绑在 `127.0.0.1`（除非主人书面要求并已加反向代理）
 
 验收失败：修配置或停在当前步骤，不要扩大权限「先跑起来再说」。
 
@@ -233,5 +243,5 @@ sudo ./uninstall.sh
 - `dutybot` 是否 active
 - 看守名单最终条目（显示名 + 真实 unit + probe）
 - SSH 通知是否能从 journal 读到
-- Web 地址（`http://127.0.0.1:端口` 或反代 URL）、登录用户名（不要报口令）
+- 若启用了 Web：地址（`http://127.0.0.1:端口` 或反代 URL）、登录用户名（不要报口令）；未启用则明确说 Web 未开
 - Token 与 Web 口令 **不要**出现在回报里
