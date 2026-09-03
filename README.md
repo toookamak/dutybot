@@ -91,6 +91,40 @@ Telegram 与 Web 均未配置时，安装脚本须提问补齐至少一条通道
 | `ssh` / `sshd` 的 journal | 非 dutybot 配置，取决于本机 | SSH 登录通知不可用，并在状态中标明原因。其余通知与菜单不受影响。 |
 | CPU 温度传感器 | 非 dutybot 配置，虚拟机上常见缺失 | 设备状态中显示「不可用」，不使用估计值。其余指标不受影响。 |
 
+## 安全声明
+
+本仓库面向公开分发。源码与默认配置不含部署者的 Token、Chat ID、口令、主机名或必选 unit。fork 之后无需修改他人的个性化配置；安装脚本在目标机器上提问，将部署者自己的密钥写入 `/etc/dutybot/env`，看守名单默认为空（`{"services":[]}`）。文档中的 Hermes、Pi Agent、DSH 仅为示例，不写入默认名单，也不作为 `uninstall.sh` 的硬依赖。无法在零提问的情况下自动连上原作者的 Bot。
+
+权限边界仅限本机 Guest Linux，不操作 PVE 宿主机。
+
+### 进程与提权
+
+- 主进程以系统用户 `dutybot` 运行，nologin，非 root。
+- 可读 `/proc`、本机资源指标，以及 `dutybot`、看守名单中的 unit、`ssh`/`sshd` 的 journal。
+- 不提供任意 shell，不提供网页命令终端。
+- 唯一 sudo 授权为 `/usr/lib/dutybot/dutyctl`，禁止 `NOPASSWD ALL`。helper 仅三条子命令，且须校验参数：
+  - `restart-unit`：unit 必须已在看守名单中；
+  - `kill-pids`：pid 必须来自当次预览确认的僵尸/孤儿集合；
+  - `reboot`：仅重启本 Guest，须经 Telegram 两次确认。
+- 重启服务、清理进程、重启系统仅能通过 Telegram 白名单账号发起。Web 页不提供上述操作。
+
+### 密钥与网络
+
+- `BOT_TOKEN`、`ALLOWED_CHAT_ID`、Web 口令哈希仅保存在 `/etc/dutybot/env`（权限 `640`，属主 `root:dutybot`），不纳入版本库，不写入日志与回报。
+- 持有 Telegram 白名单会话或泄漏的 Token，等同于可以执行上述三项特权动作。
+- Web 默认绑定 `127.0.0.1`。未配置 Web 账号则不监听 HTTP。不得将服务直接绑定 `0.0.0.0`；外网访问须经本机已有反向代理，且必须先登录。
+
+### 明确不做
+
+- 不修改 sshd、PAM，以及除 `/etc/sudoers.d/dutybot` 以外的 sudoers 文件。
+- 不安装额外的 Web 服务器，不注册第二个 systemd unit、timer 或 cron。
+- 不按 CPU 或 I/O 占用选择并终止进程。
+- 卸载只移除 dutybot 自身（用户、目录、unit、sudoers）。不停止、不删除看守名单中的服务，不删除本机原有的 Caddy、Nginx 等。
+
+### 稳定与残留风险
+
+对系统稳定的主要影响来自操作者主动把关键服务写入看守名单后执行重启，以及白名单账号被盗用后执行「重启系统」。缩小名单、保持 Web 仅本机监听，即可将影响限制在这一台 Guest。
+
 ## 当前进度
 
 本仓库目前仅包含文档。`install.sh`、Bot 与 helper 尚未提交。安装脚本就绪前，请勿编写替代安装流程。
