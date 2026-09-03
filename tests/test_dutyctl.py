@@ -12,7 +12,7 @@ DUTYCTL = ROOT / "helper" / "dutyctl"
 
 def run_ctl(args, env) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [str(DUTYCTL), *args],
+        ["bash", str(DUTYCTL), *args],
         capture_output=True,
         text=True,
         env=env,
