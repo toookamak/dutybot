@@ -66,7 +66,36 @@ chown -R root:dutybot "${OPT}/dutybot"
 find "${OPT}/dutybot" -type d -exec chmod 0755 {} \;
 find "${OPT}/dutybot" -type f -exec chmod 0644 {} \;
 
+have_venv() {
+  python3 -c 'import venv, ensurepip' >/dev/null 2>&1
+}
+
+ensure_python_venv() {
+  if have_venv; then
+    return 0
+  fi
+  PYVER="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  echo "python${PYVER} 缺少 venv/ensurepip（Debian/Ubuntu 上常见，包名 python${PYVER}-venv）。"
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "尝试安装 python${PYVER}-venv ..."
+    export DEBIAN_FRONTEND=noninteractive
+    if ! apt-get install -y "python${PYVER}-venv" 2>/dev/null; then
+      apt-get update -qq
+      apt-get install -y "python${PYVER}-venv" || apt-get install -y python3-venv || true
+    fi
+  fi
+  if have_venv; then
+    echo "venv 模块已可用。"
+    return 0
+  fi
+  echo "无法创建虚拟环境：当前 python3 没有 venv。" >&2
+  echo "Debian/Ubuntu/Mint 请先执行：apt-get install -y python${PYVER}-venv" >&2
+  echo "不要用 --without-pip 凑合，也不要降级 Python。" >&2
+  exit 1
+}
+
 echo "==> 虚拟环境与依赖"
+ensure_python_venv
 if [[ ! -x ${OPT}/venv/bin/python ]]; then
   python3 -m venv "${OPT}/venv"
 fi
@@ -236,5 +265,3 @@ else
   exit 1
 fi
 echo "卸载只移除 dutybot 自身，不会停止看守名单中的服务，也不会删除 Caddy/Nginx。"
-
-echo "卸载不会停止或删除看守名单中的服务，也不会删除本机 Caddy / Nginx。"
