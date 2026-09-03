@@ -100,6 +100,7 @@ class Notifier:
                 parse_mode="HTML",
                 disable_web_page_preview=True,
             )
+            log.info("notify sent: %s", text.splitlines()[0] if text else "")
             return True
         except Exception:
             log.exception("telegram send failed")
@@ -115,7 +116,8 @@ def _sd_send(payload: str) -> None:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         try:
             addr: str | bytes
-            if path.startswith("@"):
+            if path.startswith(
+"@"):
                 addr = "\0" + path[1:]
             else:
                 addr = path
@@ -137,4 +139,3 @@ def notify_watchdog() -> None:
 def notify_status(msg: str) -> None:
     safe = str(msg).replace("\n", " ").replace("\r", " ")[:256]
     _sd_send(f"STATUS={safe}")
-
