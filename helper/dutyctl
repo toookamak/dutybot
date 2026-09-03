@@ -1,0 +1,102 @@
+#!/bin/bash
+set -euo pipefail
+
+WATCH=${DUTYBOT_WATCH_JSON:-/var/lib/dutybot/watch.json}
+PREVIEW=${DUTYBOT_PREVIEW_FILE:-/var/lib/dutybot/kill-preview.json}
+
+usage_exit() {
+  echo "usage: dutyctl restart-unit UNIT | kill-pids TOKEN pid [pid...] | reboot" >&2
+  exit 2
+}
+
+cmd=${1:-}
+[[ -n "$cmd" ]] || usage_exit
+shift || true
+
+case "$cmd" in
+  restart-unit)
+    UNIT=${1:-}
+    [[ -n "$UNIT" ]] || usage_exit
+    if [[ ! "$UNIT" =~ ^[A-Za-z0-9:_.\\-]+\.service$ ]]; then
+      echo "invalid unit name" >&2
+      exit 2
+    fi
+    python3 -c 'import json,sys
+path, unit = sys.argv[1], sys.argv[2]
+try:
+    data = json.load(open(path, encoding="utf-8"))
+except Exception as exc:
+    print("watch.json:", exc, file=sys.stderr); sys.exit(1)
+ok = any(isinstance(s, dict) and s.get("unit")==unit for s in (data.get("services") or []))
+if not ok:
+    print("unit not in watch list:", unit, file=sys.stderr); sys.exit(1)
+' "$WATCH" "$UNIT" 
+    if [[ "${DUTYCTL_DRY_RUN:-}" == "1" ]]; then
+      echo OK
+      exit 0
+    fi
+    exec systemctl restart -- "$UNIT"
+    ;;
+  kill-pids)
+    TOKEN=${1:-}
+    shift || true
+    [[ -n "${TOKEN:-}" && $# -ge 1 ]] || usage_exit
+    for p in "$@"; do
+      if [[ ! "$p" =~ ^[0-9]+$ ]]; then
+        echo "invalid pid: $p" >&2
+        exit 2
+      fi
+    done
+    python3 -c 'import json,sys,time
+args = sys.argv[1:]
+path, token, pids = args[0], args[1], [int(x) for x in args[2:]]
+try:
+    data = json.load(open(path, encoding="utf-8"))
+except Exception as exc:
+    print("preview:", exc, file=sys.stderr); sys.exit(1)
+if str(data.get("token") or "") != token:
+    print("token mismatch", file=sys.stderr); sys.exit(1)
+try:
+    exp_f = float(data.get("expires", data.get("expires_at", 0)) or 0)
+except (TypeError, ValueError):
+    exp_f = 0
+if time.time() >= exp_f:
+    print("preview expired", file=sys.stderr); sys.exit(1)
+allowed=set()
+for p in data.get("pids") or []:
+    try: allowed.add(int(p))
+    except (TypeError, ValueError): pass
+for item in data.get("procs") or []:
+    if isinstance(item, dict) and "pid" in item:
+        try: allowed.add(int(item["pid"]))
+        except (TypeError, ValueError): pass
+if (not pids) or any(p not in allowed for p in pids):
+    missing=[p for p in pids if p not in allowed]
+    print("pid not in preview:", missing[0] if missing else "?", file=sys.stderr); sys.exit(1)
+' "$PREVIEW" "$TOKEN" "$@" 
+    for pid in "$@"; do
+      if [[ "$pid" == "1" ]]; then continue; fi
+      if [[ -f "/proc/$pid/status" ]] && grep -q "^State:.*Z" "/proc/$pid/status"; then
+        echo "pid $pid: zombie, skip" >&2
+        continue
+      fi
+      if [[ "${DUTYCTL_DRY_RUN:-}" == "1" ]]; then
+        echo "OK $pid"
+        continue
+      fi
+      kill -TERM -- "$pid" || true
+    done
+    rm -f -- "$PREVIEW"
+    ;;
+  reboot)
+    if [[ "${DUTYCTL_DRY_RUN:-}" == "1" ]]; then
+      echo OK
+      exit 0
+    fi
+    exec shutdown -r +1
+    ;;
+  *)
+    usage_exit
+    ;;
+esac
+
