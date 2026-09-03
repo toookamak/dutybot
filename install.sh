@@ -60,6 +60,7 @@ install -d -m 0750 -o dutybot -g dutybot "${VAR}/web-sessions"
 install -d -m 0755 -o root -g root "${LIB}"
 
 echo "==> 复制应用代码"
+echo "将用仓库中的 src/dutybot 覆盖 ${OPT}/dutybot"
 rm -rf "${OPT}/dutybot"
 cp -a "${SCRIPT_DIR}/src/dutybot" "${OPT}/dutybot"
 chown -R root:dutybot "${OPT}/dutybot"
@@ -96,7 +97,11 @@ ensure_python_venv() {
 
 echo "==> 虚拟环境与依赖"
 ensure_python_venv
-if [[ ! -x ${OPT}/venv/bin/python ]]; then
+# 只用系统 python3（/usr/bin），不要探测家目录或 uv：拷贝/软链出来的解释器
+# 对 systemd 用户 dutybot 不可读，或 prefix 固定导致找不到标准库。
+# 半成品 venv（有 python 无 pip）必须重建，否则重跑会跳过。
+if [[ ! -x ${OPT}/venv/bin/pip ]]; then
+  rm -rf "${OPT}/venv"
   python3 -m venv "${OPT}/venv"
 fi
 "${OPT}/venv/bin/pip" install --upgrade pip
